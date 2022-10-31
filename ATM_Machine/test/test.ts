@@ -26,7 +26,7 @@ describe("Vault", function () {
     beforeEach(async () => {
         await ethers.provider.send("hardhat_reset", []);
 
-        // Get address of each onwer account
+        // Get address of each owner account
         [owner, alice, bob, carol] = await ethers.getSigners();
 
         // deploy Vault contract with Account Owner
@@ -80,5 +80,91 @@ describe("Vault", function () {
     });
 
     //// UNHAPPY PATH
+    /// Insufficient account balance
+    it("Should not deposit,  Insufficient account balance", async () => {
+        // Transfer token from the Vault contract to Alice address
+        await token.transfer(alice.address, parseEther(1 * 10**6));
+        
+        // Token approve: User Alice allow for the Vault contract could use balance of Alice's token.
+        await token.connect(alice).approve(vault.address,token.balanceOf(alice.address));
+
+        // The Vault contract deposit token of Alice to the Vault
+        await expect(vault.connect(alice).deposit(parseEther(500 * 10**2)).revertedWith('Insufficient account balance'));
+    });
     
+    /// Insufficient account balance
+    it("Should not withdraw,  Withdraw status is not available", async () => {
+        // Grant withdraw role ti Bob
+        let WITHDRAWER_ROLE = keccak256(Buffer.from("WITHDRAWER_ROLE")).toString();
+        await vault.grantRole(WITHDRAWER_ROLE, bob.address);
+        
+        // Set Vault function: Set withdraw disable and maximum withdraw amount
+        await vault.setWithdrawEnable(false);
+        await vault.setMaxWithdrawAmount(parseEther(1 * 10**6));
+
+        // Alice deposit into the Vault
+        await token.transfer(alice.address, parseEther(1 * 10**6));
+        await token.connect(alice).approve(vault.address,token.balanceOf(alice.address));
+        await vault.connect(alice).deposit(parseEther(500 * 10**3));
+
+        // Bob withdraw into Alice address
+        await expect(token.connect(bob).withdraw(parseEther(300 * 10**3), alice.address).revertedWith('Withdraw status is not available'));   
+    });
+
+    /// Exceed maximum amount
+    it("Should not withdraw,  Exceed maximum amount", async () => {
+        // Grant withdraw role ti Bob
+        let WITHDRAWER_ROLE = keccak256(Buffer.from("WITHDRAWER_ROLE")).toString();
+        await vault.grantRole(WITHDRAWER_ROLE, bob.address);
+        
+        // Set Vault function: Set withdraw disable and maximum withdraw amount
+        await vault.setWithdrawEnable(true);
+        await vault.setMaxWithdrawAmount(parseEther(1 * 10**3));
+
+        // Alice deposit into the Vault
+        await token.transfer(alice.address, parseEther(1 * 10**6));
+        await token.connect(alice).approve(vault.address,token.balanceOf(alice.address));
+        await vault.connect(alice).deposit(parseEther(500 * 10**3));
+
+        // Bob withdraw into Alice address
+        await expect(token.connect(bob).withdraw(parseEther(30 * 10**3), alice.address).revertedWith('Exceed maximum amount'));   
+    });
+
+    /// Caller is not a withdrawer
+    it("Should not withdraw,  Caller is not a withdrawer", async () => {
+        // Grant withdraw role ti Bob
+        let WITHDRAWER_ROLE = keccak256(Buffer.from("WITHDRAWER_ROLE")).toString();
+        await vault.grantRole(WITHDRAWER_ROLE, bob.address);
+        
+        // Set Vault function: Set withdraw disable and maximum withdraw amount
+        await vault.setWithdrawEnable(true);
+        await vault.setMaxWithdrawAmount(parseEther(5 * 10**3));
+
+        // Alice deposit into the Vault
+        await token.transfer(alice.address, parseEther(1 * 10**6));
+        await token.connect(alice).approve(vault.address,token.balanceOf(alice.address));
+        await vault.connect(alice).deposit(parseEther(500 * 10**3));
+
+        // Bob withdraw into Alice address
+        await expect(token.connect(carol).withdraw(parseEther(1 * 10**3), alice.address).revertedWith('Caller is not a withdrawer'));   
+    });  
+    
+    /// ERC20: transfer amount exceeds balance
+    it("Should not withdraw,  ERC20: transfer amount exceeds balance", async () => {
+        // Grant withdraw role ti Bob
+        let WITHDRAWER_ROLE = keccak256(Buffer.from("WITHDRAWER_ROLE")).toString();
+        await vault.grantRole(WITHDRAWER_ROLE, bob.address);
+        
+        // Set Vault function: Set withdraw disable and maximum withdraw amount
+        await vault.setWithdrawEnable(true);
+        await vault.setMaxWithdrawAmount(parseEther(5 * 10**3));
+
+        // Alice deposit into the Vault
+        await token.transfer(alice.address, parseEther(1 * 10**6));
+        await token.connect(alice).approve(vault.address,token.balanceOf(alice.address));
+        await vault.connect(alice).deposit(parseEther(2 * 10**3));
+
+        // Bob withdraw into Alice address
+        await expect(token.connect(bob).withdraw(parseEther(10 * 10**3), alice.address).revertedWith('ERC20: transfer amount exceeds balance'));   
+    }); 
 })

@@ -1,5 +1,7 @@
 {
-    "dev": {},
-    "bsctest": {},
-    "main": {}
+  "dev": {},
+  "bsctest": {
+    "Beat": "0x2bB484F76B2eB7fc9B67A73f1C4C67a3a4136D8B"
+  },
+  "main": {}
 }
